@@ -96,7 +96,7 @@ void UWheelComponent::CalculateSweep()
     }
 
     const FVector ShapeSweepStart = ReferenceFrameLocation;
-    const FVector SuspensionAxis = GetUpVector().GetSafeNormal();
+    const FVector SuspensionAxis = ReferenceFrameTransform.GetUnitAxis(EAxis::Z).GetSafeNormal();
     const FVector ShapeSweepEnd = ShapeSweepStart - (SuspensionAxis * (SpringLength + WheelRadius));
 
     const FQuat ShapeRotation = GetComponentQuat();
@@ -119,6 +119,14 @@ void UWheelComponent::CalculateSweep()
     if (bContactPointActive)
     {
         ShapeSweepClosestOutHit = ShapeSweepOutHits[0];
+
+        for (const FHitResult& Hit : ShapeSweepOutHits)
+        {
+            if (Hit.Distance < ShapeSweepClosestOutHit.Distance)
+            {
+                ShapeSweepClosestOutHit = Hit;
+            }
+        }
 
         ContactLocation = ShapeSweepClosestOutHit.ImpactPoint;
         ContactNormal = ShapeSweepClosestOutHit.ImpactNormal;
@@ -173,7 +181,7 @@ void UWheelComponent::CalculatePhysics(float DeltaTime)
 
     const float TotalSuspForce = FMath::Max(SpringForce + DamperForce, 0.f);
 
-    SpringDirection = GetUpVector().GetSafeNormal();
+    SpringDirection = ReferenceFrameTransform.GetUnitAxis(EAxis::Z).GetSafeNormal();
     SuspensionForce = SpringDirection * TotalSuspForce;
 }
 
