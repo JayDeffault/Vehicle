@@ -77,26 +77,29 @@ void UWheelComponent::BeginPlay()
         UE_LOG(LogTemp, Warning, TEXT("No VisualWheelMesh set, using default mesh."));
     }
 
-    if (Body)
-    {
-        Body = Cast<UStaticMeshComponent>(GetOwner()->GetRootComponent());
-    }
+    Body = Cast<UStaticMeshComponent>(GetOwner()->GetRootComponent());
 }
 
 void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-    ReferenceFrameLocation = ReferenceFrameTransform.GetLocation();
 
 }
 
 void UWheelComponent::CalculateSweep()
 {
-    FVector ShapeSweepStart = ReferenceFrameLocation;
-    FVector ShapeSweepEnd = ShapeSweepStart - FVector(0, 0, SpringLength + WheelRadius); 
+    if (!SweepCollisionComponent)
+    {
+        bContactPointActive = false;
+        return;
+    }
 
-    FQuat ShapeRotation = GetComponentQuat();
+    const FVector ShapeSweepStart = ReferenceFrameLocation;
+    const FVector SuspensionAxis = GetUpVector().GetSafeNormal();
+    const FVector ShapeSweepEnd = ShapeSweepStart - (SuspensionAxis * (SpringLength + WheelRadius));
+
+    const FQuat ShapeRotation = GetComponentQuat();
     FComponentQueryParams Params;
     Params.AddIgnoredActor(GetOwner());
     TArray<FHitResult> ShapeSweepOutHits;
@@ -150,22 +153,28 @@ void UWheelComponent::CalculatePhysics(float DeltaTime)
 
     if (!bContactPointActive)
     {
+        bHadContactLastFrame = false;
         LastLength = CurrentLength;
         return;
     }
-    else
+
+    CurrentLength = FMath::Clamp(ShapeSweepClosestOutHit.Distance - WheelRadius, 0.f, SpringLength);
+
+    if (!bHadContactLastFrame)
     {
-        CurrentLength = ShapeSweepClosestOutHit.Distance - WheelRadius;
-        float SpringForce = SpringStiffness * (SpringLength - CurrentLength);
-        float DamperForce = SpringDamping * (LastLength - CurrentLength) / DeltaTime;
         LastLength = CurrentLength;
-        float TotalSuspForce = SpringForce + DamperForce;
-
-        SpringDirection = ShapeSweepClosestOutHit.ImpactNormal;
-        SpringDirection.Normalize();
-
-        SuspensionForce = SpringDirection * TotalSuspForce;
+        bHadContactLastFrame = true;
     }
+
+    const float SafeDeltaTime = FMath::Max(DeltaTime, KINDA_SMALL_NUMBER);
+    const float SpringForce = SpringStiffness * (SpringLength - CurrentLength);
+    const float DamperForce = SpringDamping * (LastLength - CurrentLength) / SafeDeltaTime;
+    LastLength = CurrentLength;
+
+    const float TotalSuspForce = FMath::Max(SpringForce + DamperForce, 0.f);
+
+    SpringDirection = GetUpVector().GetSafeNormal();
+    SuspensionForce = SpringDirection * TotalSuspForce;
 }
 
 void UWheelComponent::VisualUpdate()

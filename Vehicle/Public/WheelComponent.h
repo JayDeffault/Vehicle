@@ -21,15 +21,18 @@ protected:
 public:
     virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-    UStaticMeshComponent* SweepCollisionComponent;
+    UPROPERTY()
+    UStaticMeshComponent* SweepCollisionComponent = nullptr;
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Wheel")
     UStaticMesh* CollisionShape;
 
-    UStaticMeshComponent* VisualWheelMeshComponent;
+    UPROPERTY()
+    UStaticMeshComponent* VisualWheelMeshComponent = nullptr;
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Wheel")
     UStaticMesh* VisualWheelMesh;
 
-    UStaticMeshComponent* Body;
+    UPROPERTY()
+    UStaticMeshComponent* Body = nullptr;
 
     void CalculateSweep();
     void CalculatePhysics(float DeltaTime);
@@ -41,7 +44,7 @@ public:
     float WheelRadius;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension", meta=(ClampMin = -30, ClampMax = 30))
-    float TopSpringOffset = FMath::Clamp(TopSpringOffset, -30, 30);
+    float TopSpringOffset = 0.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension")
     float SpringLength = 30;
