@@ -40,7 +40,11 @@ void AVehiclePawn::NativeAsyncTick(float DeltaTime)
 
         WheelComp->CalculatePhysics(DeltaTime);
 
-        UAsyncTickFunctions::ATP_AddForceAtPosition(CarMesh, WheelComp->SuspensionForce, WheelComp->GetComponentLocation());
+        const FVector ForceApplicationPoint = WheelComp->bContactPointActive
+            ? WheelComp->TracedHubLocation
+            : WheelComp->GetComponentLocation();
+
+        UAsyncTickFunctions::ATP_AddForceAtPosition(CarMesh, WheelComp->SuspensionForce, ForceApplicationPoint);
     }
 }
 
