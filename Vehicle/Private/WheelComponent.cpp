@@ -97,7 +97,7 @@ void UWheelComponent::CalculateSweep()
     }
 
     const FVector ShapeSweepStart = ReferenceFrameLocation;
-    const FVector SuspensionAxis = ReferenceFrameTransform.GetUnitAxis(EAxis::Z).GetSafeNormal();
+    const FVector SuspensionAxis = FVector::UpVector;
     const FVector ShapeSweepEnd = ShapeSweepStart - (SuspensionAxis * (SpringLength + WheelRadius));
 
     const FQuat ShapeRotation = GetComponentQuat();
@@ -180,9 +180,9 @@ void UWheelComponent::CalculatePhysics(float DeltaTime)
     LastDamperForce = SpringDamping * (LastLength - CurrentLength) / SafeDeltaTime;
     LastLength = CurrentLength;
 
-    const float TotalSuspForce = FMath::Max(LastSpringForce + LastDamperForce, 0.f);
+    const float TotalSuspForce = FMath::Clamp(LastSpringForce + LastDamperForce, 0.f, MaxSuspensionForce);
 
-    SpringDirection = ReferenceFrameTransform.GetUnitAxis(EAxis::Z).GetSafeNormal();
+    SpringDirection = FVector::UpVector;
     SuspensionForce = SpringDirection * TotalSuspForce;
     LastAppliedForce = SuspensionForce;
 

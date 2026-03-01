@@ -56,6 +56,9 @@ public:
     float SpringDamping;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension")
+    float MaxSuspensionForce = 120000.f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension")
     bool bEnableDebugMode;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
