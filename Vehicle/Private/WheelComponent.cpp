@@ -6,6 +6,7 @@
 #include "DrawDebugHelpers.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/Actor.h"
+#include "Components/PrimitiveComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 
 UWheelComponent::UWheelComponent()
@@ -175,14 +176,51 @@ void UWheelComponent::CalculatePhysics(float DeltaTime)
     }
 
     const float SafeDeltaTime = FMath::Max(DeltaTime, KINDA_SMALL_NUMBER);
-    const float SpringForce = SpringStiffness * (SpringLength - CurrentLength);
-    const float DamperForce = SpringDamping * (LastLength - CurrentLength) / SafeDeltaTime;
+    LastSpringForce = SpringStiffness * (SpringLength - CurrentLength);
+    LastDamperForce = SpringDamping * (LastLength - CurrentLength) / SafeDeltaTime;
     LastLength = CurrentLength;
 
-    const float TotalSuspForce = FMath::Max(SpringForce + DamperForce, 0.f);
+    const float TotalSuspForce = FMath::Max(LastSpringForce + LastDamperForce, 0.f);
 
     SpringDirection = ReferenceFrameTransform.GetUnitAxis(EAxis::Z).GetSafeNormal();
     SuspensionForce = SpringDirection * TotalSuspForce;
+    LastAppliedForce = SuspensionForce;
+
+    LastEstimatedTorque = FVector::ZeroVector;
+    if (Body)
+    {
+        const FVector ForcePoint = GetComponentLocation();
+        const FVector LeverArm = ForcePoint - Body->GetCenterOfMass();
+        LastEstimatedTorque = FVector::CrossProduct(LeverArm, SuspensionForce);
+
+        if (bEnableDebugMode)
+        {
+            const FVector ForceEnd = ForcePoint + (SuspensionForce * DebugForceDrawScale);
+            DrawDebugLine(GetWorld(), ForcePoint, ForceEnd, FColor::Cyan, false, 0.f, 0, 2.f);
+            DrawDebugPoint(GetWorld(), ForcePoint, 10.f, FColor::Cyan, false, 0.f, 0);
+
+            DebugLogTimer += DeltaTime;
+            if (DebugLogTimer >= DebugLogInterval)
+            {
+                DebugLogTimer = 0.f;
+                UE_LOG(
+                    LogTemp,
+                    Warning,
+                    TEXT("Wheel[%s] Len=%.2f Spring=%.2f Damping=%.2f Force=(%.1f,%.1f,%.1f) Torque=(%.1f,%.1f,%.1f)"),
+                    *GetName(),
+                    CurrentLength,
+                    LastSpringForce,
+                    LastDamperForce,
+                    SuspensionForce.X,
+                    SuspensionForce.Y,
+                    SuspensionForce.Z,
+                    LastEstimatedTorque.X,
+                    LastEstimatedTorque.Y,
+                    LastEstimatedTorque.Z
+                );
+            }
+        }
+    }
 }
 
 void UWheelComponent::VisualUpdate()

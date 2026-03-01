@@ -58,6 +58,26 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension")
     bool bEnableDebugMode;
 
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
+    float LastSpringForce = 0.f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
+    float LastDamperForce = 0.f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
+    FVector LastAppliedForce = FVector::ZeroVector;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
+    FVector LastEstimatedTorque = FVector::ZeroVector;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
+    float DebugForceDrawScale = 0.0025f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
+    float DebugLogInterval = 0.15f;
+
+    float DebugLogTimer = 0.f;
+
     UPROPERTY()
     USceneComponent* ParentComponentRef;
     UPROPERTY()
