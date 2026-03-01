@@ -4,6 +4,9 @@
 #include "Components/SceneComponent.h"
 #include "WheelComponent.generated.h"
 
+class UStaticMeshComponent;
+class UPrimitiveComponent;
+
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class VEHICLE_API UWheelComponent : public USceneComponent
