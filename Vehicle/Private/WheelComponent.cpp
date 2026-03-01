@@ -3,8 +3,8 @@
 #include "WheelComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Components/StaticMeshComponent.h"
-#include "CollisionShape.h"
 #include "Engine/World.h"
+#include <limits>
 
 UWheelComponent::UWheelComponent()
 {
@@ -15,12 +15,29 @@ void UWheelComponent::BeginPlay()
 {
     Super::BeginPlay();
 
+    if (CollisionShape)
+    {
+        SweepCollisionComponent = NewObject<UStaticMeshComponent>(this, TEXT("SweepCollisionTemp"));
+        SweepCollisionComponent->SetupAttachment(this);
+        SweepCollisionComponent->SetStaticMesh(CollisionShape);
+        SweepCollisionComponent->SetRelativeScale3D(FVector(1.f));
+        SweepCollisionComponent->SetVisibility(false);
+        SweepCollisionComponent->SetHiddenInGame(true);
+        SweepCollisionComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+        SweepCollisionComponent->SetCollisionResponseToAllChannels(ECR_Block);
+        SweepCollisionComponent->SetCollisionObjectType(ECC_Visibility);
+        SweepCollisionComponent->RegisterComponent();
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Wheel[%s] has no CollisionShape. Sweep disabled."), *GetName());
+    }
+
     if (VisualWheelMesh)
     {
         VisualWheelMeshComponent = NewObject<UStaticMeshComponent>(this, TEXT("V_WheelMesh_"));
         VisualWheelMeshComponent->SetupAttachment(this);
         VisualWheelMeshComponent->SetStaticMesh(VisualWheelMesh);
-        VisualWheelMeshComponent->SetUsingAbsoluteScale(false);
         VisualWheelMeshComponent->SetRelativeScale3D(FVector(1.f));
 
         const float SideY = GetRelativeLocation().Y;
@@ -28,14 +45,14 @@ void UWheelComponent::BeginPlay()
         MeshScale.Y = (SideY > 0.f) ? -FMath::Abs(MeshScale.Y) : FMath::Abs(MeshScale.Y);
         VisualWheelMeshComponent->SetRelativeScale3D(MeshScale);
 
-        VisualWheelMeshComponent->RegisterComponent();
         VisualWheelMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-        VisualWheelMeshComponent->SetUsingAbsoluteLocation(false);
-        VisualWheelMeshComponent->SetUsingAbsoluteRotation(false);
-        VisualWheelMeshComponent->SetUsingAbsoluteScale(false);
+        VisualWheelMeshComponent->RegisterComponent();
     }
 
     Body = Cast<UStaticMeshComponent>(GetOwner() ? GetOwner()->GetRootComponent() : nullptr);
+
+    CurrentLength = SpringLength;
+    LastLength = SpringLength;
 }
 
 void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -45,10 +62,16 @@ void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 
 void UWheelComponent::CalculateSweep()
 {
+    bContactPointActive = false;
+
+    if (!SweepCollisionComponent)
+    {
+        return;
+    }
+
     UWorld* World = GetWorld();
     if (!World)
     {
-        bContactPointActive = false;
         return;
     }
 
@@ -56,39 +79,64 @@ void UWheelComponent::CalculateSweep()
     const FVector SweepStart = ReferenceFrameLocation + (SuspensionAxis * TopSpringOffset);
     const FVector SweepEnd = SweepStart - (SuspensionAxis * (SpringLength + WheelRadius));
 
-    FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(WheelSweep), false, GetOwner());
-    QueryParams.bReturnPhysicalMaterial = true;
+    FComponentQueryParams QueryParams;
+    QueryParams.AddIgnoredActor(GetOwner());
 
-    FHitResult Hit;
-    const FCollisionShape SweepShape = FCollisionShape::MakeSphere(WheelRadius);
-
-    bContactPointActive = World->SweepSingleByChannel(
-        Hit,
+    TArray<FHitResult> Hits;
+    const bool bAnyHit = World->ComponentSweepMulti(
+        Hits,
+        SweepCollisionComponent,
         SweepStart,
         SweepEnd,
-        FQuat::Identity,
-        ECC_Visibility,
-        SweepShape,
+        SweepCollisionComponent->GetComponentQuat(),
         QueryParams
     );
 
-    if (bContactPointActive)
+    if (!bAnyHit)
     {
-        ShapeSweepClosestOutHit = Hit;
-        ContactLocation = Hit.ImpactPoint;
-        ContactNormal = Hit.ImpactNormal.GetSafeNormal();
-        ContactPhysicalMaterial = Hit.PhysMaterial.Get();
-        TracedHubLocation = Hit.Location;
+        if (bEnableDebugMode)
+        {
+            DrawDebugLine(World, SweepStart, SweepEnd, FColor::Yellow, false, 0.f, 0, 0.8f);
+        }
+        return;
     }
+
+    bool bFoundBlockingHit = false;
+    FHitResult ClosestHit;
+    float ClosestDistance = std::numeric_limits<float>::max();
+
+    for (const FHitResult& Hit : Hits)
+    {
+        if (!Hit.bBlockingHit)
+        {
+            continue;
+        }
+
+        if (Hit.Distance < ClosestDistance)
+        {
+            ClosestDistance = Hit.Distance;
+            ClosestHit = Hit;
+            bFoundBlockingHit = true;
+        }
+    }
+
+    if (!bFoundBlockingHit)
+    {
+        return;
+    }
+
+    bContactPointActive = true;
+    ShapeSweepClosestOutHit = ClosestHit;
+    ContactLocation = ClosestHit.ImpactPoint;
+    ContactNormal = ClosestHit.ImpactNormal.GetSafeNormal(FVector::UpVector);
+    ContactPhysicalMaterial = ClosestHit.PhysMaterial.Get();
+    TracedHubLocation = ClosestHit.Location;
 
     if (bEnableDebugMode)
     {
-        DrawDebugLine(World, SweepStart, SweepEnd, FColor::Yellow, false, 0.f, 0, 0.f);
-        if (bContactPointActive)
-        {
-            DrawDebugLine(World, ContactLocation, TracedHubLocation, FColor::Red, false, 0.f, 0, 1.2f);
-            DrawDebugSphere(World, TracedHubLocation, WheelRadius, 12, FColor::Green, false, 0.f, 0, 0.6f);
-        }
+        DrawDebugLine(World, SweepStart, SweepEnd, FColor::Yellow, false, 0.f, 0, 0.8f);
+        DrawDebugLine(World, ContactLocation, TracedHubLocation, FColor::Red, false, 0.f, 0, 1.2f);
+        DrawDebugPoint(World, ContactLocation, 9.f, FColor::Red, false, 0.f, 0);
     }
 }
 
@@ -103,8 +151,9 @@ void UWheelComponent::CalculatePhysics(float DeltaTime)
 
     if (!bContactPointActive)
     {
-        LastLength = SpringLength;
+        bHadContactLastFrame = false;
         CurrentLength = SpringLength;
+        LastLength = SpringLength;
         LastCompressionVelocity = 0.f;
         return;
     }
@@ -113,30 +162,31 @@ void UWheelComponent::CalculatePhysics(float DeltaTime)
     if (GroundAlignment < MinGroundNormalAlignment)
     {
         bContactPointActive = false;
-        LastLength = SpringLength;
+        bHadContactLastFrame = false;
         CurrentLength = SpringLength;
+        LastLength = SpringLength;
         LastCompressionVelocity = 0.f;
         return;
     }
 
     CurrentLength = FMath::Clamp(ShapeSweepClosestOutHit.Distance - WheelRadius, 0.f, SpringLength);
 
-    if (LastLength <= 0.f || LastLength > SpringLength)
+    if (!bHadContactLastFrame)
     {
         LastLength = CurrentLength;
+        bHadContactLastFrame = true;
     }
 
-    const float Compression = SpringLength - CurrentLength;
     const float SafeDeltaTime = FMath::Max(DeltaTime, KINDA_SMALL_NUMBER);
+    const float Compression = SpringLength - CurrentLength;
     LastCompressionVelocity = (LastLength - CurrentLength) / SafeDeltaTime;
 
     LastSpringForce = SpringStiffness * Compression;
     LastDamperForce = SpringDamping * LastCompressionVelocity;
 
-    float TotalSuspForce = LastSpringForce + LastDamperForce;
-    TotalSuspForce = FMath::Clamp(TotalSuspForce, 0.f, MaxSuspensionForce);
+    const float TotalSuspensionForce = FMath::Clamp(LastSpringForce + LastDamperForce, 0.f, MaxSuspensionForce);
 
-    SuspensionForce = SpringDirection * TotalSuspForce;
+    SuspensionForce = SpringDirection * TotalSuspensionForce;
     LastAppliedForce = SuspensionForce;
 
     const FVector ForcePoint = TracedHubLocation;
@@ -150,7 +200,6 @@ void UWheelComponent::CalculatePhysics(float DeltaTime)
     {
         const FVector ForceEnd = ForcePoint + (SuspensionForce * DebugForceDrawScale);
         DrawDebugLine(GetWorld(), ForcePoint, ForceEnd, FColor::Cyan, false, 0.f, 0, 2.f);
-        DrawDebugPoint(GetWorld(), ForcePoint, 8.f, FColor::Cyan, false, 0.f, 0);
 
         DebugLogTimer += DeltaTime;
         if (DebugLogTimer >= DebugLogInterval)
@@ -159,7 +208,7 @@ void UWheelComponent::CalculatePhysics(float DeltaTime)
             UE_LOG(
                 LogTemp,
                 Warning,
-                TEXT("Wheel[%s] Len=%.2f Comp=%.2f Vel=%.2f Spring=%.1f Damping=%.1f Force=(%.1f,%.1f,%.1f)"),
+                TEXT("Wheel[%s] Len=%.2f Comp=%.2f Vel=%.2f Spring=%.1f Damp=%.1f Force=(%.1f,%.1f,%.1f)"),
                 *GetName(),
                 CurrentLength,
                 Compression,

@@ -6,7 +6,6 @@
 #include "Runtime/Engine/Public/CollisionQueryParams.h"
 #include "WheelComponent.generated.h"
 
-
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class VEHICLE_API UWheelComponent : public USceneComponent
 {
@@ -114,6 +113,9 @@ public:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
     bool bContactPointActive = false;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
+    bool bHadContactLastFrame = false;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
     float CurrentLength = 0.f;
