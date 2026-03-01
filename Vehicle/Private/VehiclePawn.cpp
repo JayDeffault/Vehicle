@@ -13,17 +13,11 @@ AVehiclePawn::AVehiclePawn()
 {
     PrimaryActorTick.bCanEverTick = true;
 
-    CarMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CarMesh"));
-    CarMesh->SetSimulatePhysics(true);
-    CarMesh->SetNotifyRigidBodyCollision(true);
-    RootComponent = CarMesh;
 }
 
 void AVehiclePawn::BeginPlay()
 {
     Super::BeginPlay();
-
-    GetComponents<UWheelComponent>(WheelComponents);
 
 }
 
@@ -31,27 +25,10 @@ void AVehiclePawn::NativeAsyncTick(float DeltaTime)
 {
     Super::NativeAsyncTick(DeltaTime);
 
-    for (UWheelComponent* WheelComp : WheelComponents)
-    {
-        if (!WheelComp) continue;
-
-        WheelComp->ReferenceFrameTransform = GetTransform();
-        WheelComp->ReferenceFrameLocation = WheelComp->GetComponentLocation();
-
-        WheelComp->CalculatePhysics(DeltaTime);
-
-        UAsyncTickFunctions::ATP_AddForceAtPosition(CarMesh, WheelComp->SuspensionForce, WheelComp->GetComponentLocation());
-    }
 }
 
 void AVehiclePawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-    for (UWheelComponent* WheelComp : WheelComponents)
-    {
-        if (!WheelComp) continue;
-
-        WheelComp->VisualUpdate();
-    }
 }
