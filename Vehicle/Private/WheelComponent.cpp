@@ -1,10 +1,8 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "WheelComponent.h"
+
 #include "DrawDebugHelpers.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
-#include <limits>
 
 UWheelComponent::UWheelComponent()
 {
@@ -15,41 +13,33 @@ void UWheelComponent::BeginPlay()
 {
     Super::BeginPlay();
 
+    Body = Cast<UStaticMeshComponent>(GetOwner() ? GetOwner()->GetRootComponent() : nullptr);
+
     if (CollisionShape)
     {
         SweepCollisionComponent = NewObject<UStaticMeshComponent>(this, TEXT("SweepCollisionTemp"));
         SweepCollisionComponent->SetupAttachment(this);
         SweepCollisionComponent->SetStaticMesh(CollisionShape);
-        SweepCollisionComponent->SetRelativeScale3D(FVector(1.f));
-        SweepCollisionComponent->SetVisibility(false);
-        SweepCollisionComponent->SetHiddenInGame(true);
         SweepCollisionComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
         SweepCollisionComponent->SetCollisionResponseToAllChannels(ECR_Block);
-        SweepCollisionComponent->SetCollisionObjectType(ECC_Visibility);
+        SweepCollisionComponent->SetHiddenInGame(true);
+        SweepCollisionComponent->SetVisibility(false);
         SweepCollisionComponent->RegisterComponent();
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Wheel[%s] has no CollisionShape. Sweep disabled."), *GetName());
     }
 
     if (VisualWheelMesh)
     {
-        VisualWheelMeshComponent = NewObject<UStaticMeshComponent>(this, TEXT("V_WheelMesh_"));
+        VisualWheelMeshComponent = NewObject<UStaticMeshComponent>(this, TEXT("VisualWheelMesh"));
         VisualWheelMeshComponent->SetupAttachment(this);
         VisualWheelMeshComponent->SetStaticMesh(VisualWheelMesh);
-        VisualWheelMeshComponent->SetRelativeScale3D(FVector(1.f));
 
-        const float SideY = GetRelativeLocation().Y;
         FVector MeshScale = VisualWheelMeshComponent->GetRelativeScale3D();
-        MeshScale.Y = (SideY > 0.f) ? -FMath::Abs(MeshScale.Y) : FMath::Abs(MeshScale.Y);
+        MeshScale.Y = (GetRelativeLocation().Y > 0.f) ? -FMath::Abs(MeshScale.Y) : FMath::Abs(MeshScale.Y);
         VisualWheelMeshComponent->SetRelativeScale3D(MeshScale);
 
         VisualWheelMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
         VisualWheelMeshComponent->RegisterComponent();
     }
-
-    Body = Cast<UStaticMeshComponent>(GetOwner() ? GetOwner()->GetRootComponent() : nullptr);
 
     CurrentLength = SpringLength;
     LastLength = SpringLength;
@@ -75,9 +65,8 @@ void UWheelComponent::CalculateSweep()
         return;
     }
 
-    const FVector SuspensionAxis = FVector::UpVector;
-    const FVector SweepStart = ReferenceFrameLocation + (SuspensionAxis * TopSpringOffset);
-    const FVector SweepEnd = SweepStart - (SuspensionAxis * (SpringLength + WheelRadius));
+    const FVector SweepStart = GetComponentLocation();
+    const FVector SweepEnd = SweepStart - (FVector::UpVector * (SpringLength + WheelRadius));
 
     FComponentQueryParams QueryParams;
     QueryParams.AddIgnoredActor(GetOwner());
@@ -101,42 +90,42 @@ void UWheelComponent::CalculateSweep()
         return;
     }
 
-    bool bFoundBlockingHit = false;
-    FHitResult ClosestHit;
-    float ClosestDistance = std::numeric_limits<float>::max();
+    int32 BestHitIdx = INDEX_NONE;
+    float BestDistance = TNumericLimits<float>::Max();
 
-    for (const FHitResult& Hit : Hits)
+    for (int32 Idx = 0; Idx < Hits.Num(); ++Idx)
     {
+        const FHitResult& Hit = Hits[Idx];
         if (!Hit.bBlockingHit)
         {
             continue;
         }
 
-        if (Hit.Distance < ClosestDistance)
+        if (Hit.Distance < BestDistance)
         {
-            ClosestDistance = Hit.Distance;
-            ClosestHit = Hit;
-            bFoundBlockingHit = true;
+            BestDistance = Hit.Distance;
+            BestHitIdx = Idx;
         }
     }
 
-    if (!bFoundBlockingHit)
+    if (BestHitIdx == INDEX_NONE)
     {
         return;
     }
 
+    const FHitResult& BestHit = Hits[BestHitIdx];
+
+    ShapeSweepClosestOutHit = BestHit;
     bContactPointActive = true;
-    ShapeSweepClosestOutHit = ClosestHit;
-    ContactLocation = ClosestHit.ImpactPoint;
-    ContactNormal = ClosestHit.ImpactNormal.GetSafeNormal(FVector::UpVector);
-    ContactPhysicalMaterial = ClosestHit.PhysMaterial.Get();
-    TracedHubLocation = ClosestHit.Location;
+    ContactLocation = BestHit.ImpactPoint;
+    ContactNormal = BestHit.ImpactNormal.GetSafeNormal(FVector::UpVector);
+    TracedHubLocation = BestHit.Location;
 
     if (bEnableDebugMode)
     {
         DrawDebugLine(World, SweepStart, SweepEnd, FColor::Yellow, false, 0.f, 0, 0.8f);
         DrawDebugLine(World, ContactLocation, TracedHubLocation, FColor::Red, false, 0.f, 0, 1.2f);
-        DrawDebugPoint(World, ContactLocation, 9.f, FColor::Red, false, 0.f, 0);
+        DrawDebugPoint(World, ContactLocation, 8.f, FColor::Red, false, 0.f, 0);
     }
 }
 
@@ -145,27 +134,23 @@ void UWheelComponent::CalculatePhysics(float DeltaTime)
     CalculateSweep();
 
     SuspensionForce = FVector::ZeroVector;
-    LastAppliedForce = FVector::ZeroVector;
-    LastEstimatedTorque = FVector::ZeroVector;
-    SpringDirection = FVector::UpVector;
+    LastSpringForce = 0.f;
+    LastDamperForce = 0.f;
 
     if (!bContactPointActive)
     {
         bHadContactLastFrame = false;
         CurrentLength = SpringLength;
         LastLength = SpringLength;
-        LastCompressionVelocity = 0.f;
         return;
     }
 
-    const float GroundAlignment = FVector::DotProduct(ContactNormal, FVector::UpVector);
-    if (GroundAlignment < MinGroundNormalAlignment)
+    if (FVector::DotProduct(ContactNormal, FVector::UpVector) < MinGroundNormalAlignment)
     {
         bContactPointActive = false;
         bHadContactLastFrame = false;
         CurrentLength = SpringLength;
         LastLength = SpringLength;
-        LastCompressionVelocity = 0.f;
         return;
     }
 
@@ -179,47 +164,17 @@ void UWheelComponent::CalculatePhysics(float DeltaTime)
 
     const float SafeDeltaTime = FMath::Max(DeltaTime, KINDA_SMALL_NUMBER);
     const float Compression = SpringLength - CurrentLength;
-    LastCompressionVelocity = (LastLength - CurrentLength) / SafeDeltaTime;
+    const float CompressionVelocity = (LastLength - CurrentLength) / SafeDeltaTime;
 
     LastSpringForce = SpringStiffness * Compression;
-    LastDamperForce = SpringDamping * LastCompressionVelocity;
+    LastDamperForce = SpringDamping * CompressionVelocity;
 
-    const float TotalSuspensionForce = FMath::Clamp(LastSpringForce + LastDamperForce, 0.f, MaxSuspensionForce);
-
-    SuspensionForce = SpringDirection * TotalSuspensionForce;
-    LastAppliedForce = SuspensionForce;
-
-    const FVector ForcePoint = TracedHubLocation;
-    if (Body)
-    {
-        const FVector LeverArm = ForcePoint - Body->GetCenterOfMass();
-        LastEstimatedTorque = FVector::CrossProduct(LeverArm, SuspensionForce);
-    }
+    const float TotalForce = FMath::Clamp(LastSpringForce + LastDamperForce, 0.f, MaxSuspensionForce);
+    SuspensionForce = FVector::UpVector * TotalForce;
 
     if (bEnableDebugMode)
     {
-        const FVector ForceEnd = ForcePoint + (SuspensionForce * DebugForceDrawScale);
-        DrawDebugLine(GetWorld(), ForcePoint, ForceEnd, FColor::Cyan, false, 0.f, 0, 2.f);
-
-        DebugLogTimer += DeltaTime;
-        if (DebugLogTimer >= DebugLogInterval)
-        {
-            DebugLogTimer = 0.f;
-            UE_LOG(
-                LogTemp,
-                Warning,
-                TEXT("Wheel[%s] Len=%.2f Comp=%.2f Vel=%.2f Spring=%.1f Damp=%.1f Force=(%.1f,%.1f,%.1f)"),
-                *GetName(),
-                CurrentLength,
-                Compression,
-                LastCompressionVelocity,
-                LastSpringForce,
-                LastDamperForce,
-                SuspensionForce.X,
-                SuspensionForce.Y,
-                SuspensionForce.Z
-            );
-        }
+        DrawDebugLine(GetWorld(), TracedHubLocation, TracedHubLocation + (SuspensionForce * 0.0025f), FColor::Cyan, false, 0.f, 0, 2.f);
     }
 
     LastLength = CurrentLength;

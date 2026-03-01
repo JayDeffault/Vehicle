@@ -35,9 +35,6 @@ void AVehiclePawn::NativeAsyncTick(float DeltaTime)
     {
         if (!WheelComp) continue;
 
-        WheelComp->ReferenceFrameTransform = GetTransform();
-        WheelComp->ReferenceFrameLocation = WheelComp->GetComponentLocation();
-
         WheelComp->CalculatePhysics(DeltaTime);
 
         const FVector ForceApplicationPoint = WheelComp->bContactPointActive
