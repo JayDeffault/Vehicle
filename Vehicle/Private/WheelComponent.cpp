@@ -8,6 +8,8 @@
 #include "GameFramework/Actor.h"
 #include "Components/PrimitiveComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Engine/World.h"
+#include "CollisionShape.h"
 
 UWheelComponent::UWheelComponent()
 {
@@ -90,66 +92,55 @@ void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 
 void UWheelComponent::CalculateSweep()
 {
-    if (!SweepCollisionComponent)
+    UWorld* World = GetWorld();
+    if (!World)
     {
         bContactPointActive = false;
         return;
     }
 
-    const FVector ShapeSweepStart = ReferenceFrameLocation;
     const FVector SuspensionAxis = FVector::UpVector;
+    const FVector ShapeSweepStart = ReferenceFrameLocation + (SuspensionAxis * TopSpringOffset);
     const FVector ShapeSweepEnd = ShapeSweepStart - (SuspensionAxis * (SpringLength + WheelRadius));
 
-    const FQuat ShapeRotation = GetComponentQuat();
-    FComponentQueryParams Params;
-    Params.AddIgnoredActor(GetOwner());
-    TArray<FHitResult> ShapeSweepOutHits;
+    FCollisionQueryParams CollisionQueryParams(SCENE_QUERY_STAT(WheelSweep), false, GetOwner());
+    CollisionQueryParams.bReturnPhysicalMaterial = true;
 
-    FCollisionQueryParams CollisionQueryParams;
-    CollisionQueryParams.AddIgnoredActor(GetOwner());
+    FHitResult Hit;
+    const FCollisionShape SweepShape = FCollisionShape::MakeSphere(WheelRadius);
 
-    bContactPointActive = GetOwner()->GetWorld()->ComponentSweepMulti(
-        ShapeSweepOutHits,
-        SweepCollisionComponent,
+    bContactPointActive = World->SweepSingleByChannel(
+        Hit,
         ShapeSweepStart,
         ShapeSweepEnd,
-        ShapeRotation,
-        Params
+        FQuat::Identity,
+        ECC_Visibility,
+        SweepShape,
+        CollisionQueryParams
     );
 
     if (bContactPointActive)
     {
-        ShapeSweepClosestOutHit = ShapeSweepOutHits[0];
-
-        for (const FHitResult& Hit : ShapeSweepOutHits)
-        {
-            if (Hit.Distance < ShapeSweepClosestOutHit.Distance)
-            {
-                ShapeSweepClosestOutHit = Hit;
-            }
-        }
-
-        ContactLocation = ShapeSweepClosestOutHit.ImpactPoint;
-        ContactNormal = ShapeSweepClosestOutHit.ImpactNormal;
-        ContactPhysicalMaterial = ShapeSweepClosestOutHit.PhysMaterial.Get();
-        TracedHubLocation = ShapeSweepClosestOutHit.Location;
+        ShapeSweepClosestOutHit = Hit;
+        ContactLocation = Hit.ImpactPoint;
+        ContactNormal = Hit.ImpactNormal;
+        ContactPhysicalMaterial = Hit.PhysMaterial.Get();
+        TracedHubLocation = Hit.Location;
     }
-    else
+    else if (bEnableDebugMode)
     {
-        if (bEnableDebugMode)
-        {
-            UE_LOG(LogTemp, Warning, TEXT("No hit detected during trace."));
-        }
+        UE_LOG(LogTemp, Warning, TEXT("No hit detected during trace."));
     }
 
     if (bEnableDebugMode)
     {
-        DrawDebugLine(GetWorld(), ShapeSweepStart, ShapeSweepEnd, FColor::Yellow, false, 0, 0, 0);
+        DrawDebugLine(World, ShapeSweepStart, ShapeSweepEnd, FColor::Yellow, false, 0.f, 0, 0.f);
 
         if (bContactPointActive)
         {
-            DrawDebugLine(GetWorld(), ContactLocation, ShapeSweepStart, FColor::Red, false, 0, 0, 0);
-            DrawDebugPoint(GetWorld(), ContactLocation, 12, FColor::Red, false, 0, 0);
+            DrawDebugLine(World, ContactLocation, ShapeSweepStart, FColor::Red, false, 0.f, 0, 0.f);
+            DrawDebugPoint(World, ContactLocation, 12.f, FColor::Red, false, 0.f, 0);
+            DrawDebugSphere(World, TracedHubLocation, WheelRadius, 12, FColor::Green, false, 0.f, 0, 0.8f);
         }
     }
 }
@@ -182,6 +173,15 @@ void UWheelComponent::CalculatePhysics(float DeltaTime)
 
     const float TotalSuspForce = FMath::Clamp(LastSpringForce + LastDamperForce, 0.f, MaxSuspensionForce);
 
+    const float GroundAlignment = FVector::DotProduct(ContactNormal.GetSafeNormal(), FVector::UpVector);
+    if (GroundAlignment < MinGroundNormalAlignment)
+    {
+        bContactPointActive = false;
+        bHadContactLastFrame = false;
+        SuspensionForce = FVector::ZeroVector;
+        return;
+    }
+
     SpringDirection = FVector::UpVector;
     SuspensionForce = SpringDirection * TotalSuspForce;
     LastAppliedForce = SuspensionForce;
@@ -189,7 +189,7 @@ void UWheelComponent::CalculatePhysics(float DeltaTime)
     LastEstimatedTorque = FVector::ZeroVector;
     if (Body)
     {
-        const FVector ForcePoint = GetComponentLocation();
+        const FVector ForcePoint = bContactPointActive ? ContactLocation : GetComponentLocation();
         const FVector LeverArm = ForcePoint - Body->GetCenterOfMass();
         LastEstimatedTorque = FVector::CrossProduct(LeverArm, SuspensionForce);
 

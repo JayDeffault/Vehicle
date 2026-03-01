@@ -58,6 +58,9 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension")
     float MaxSuspensionForce = 120000.f;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension", meta=(ClampMin = "0.0", ClampMax = "1.0"))
+    float MinGroundNormalAlignment = 0.3f;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension")
     bool bEnableDebugMode;
 
