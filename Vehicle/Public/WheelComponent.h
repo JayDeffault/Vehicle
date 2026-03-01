@@ -23,13 +23,15 @@ public:
 
     UPROPERTY()
     UStaticMeshComponent* SweepCollisionComponent = nullptr;
+
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Wheel")
-    UStaticMesh* CollisionShape;
+    UStaticMesh* CollisionShape = nullptr;
 
     UPROPERTY()
     UStaticMeshComponent* VisualWheelMeshComponent = nullptr;
+
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Wheel")
-    UStaticMesh* VisualWheelMesh;
+    UStaticMesh* VisualWheelMesh = nullptr;
 
     UPROPERTY()
     UStaticMeshComponent* Body = nullptr;
@@ -39,30 +41,29 @@ public:
     void VisualUpdate();
 
 public:
-
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension")
-    float WheelRadius;
+    float WheelRadius = 30.f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension", meta=(ClampMin = -30, ClampMax = 30))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension", meta = (ClampMin = -30, ClampMax = 30))
     float TopSpringOffset = 0.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension")
-    float SpringLength = 30;
+    float SpringLength = 30.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension")
-    float SpringStiffness;
+    float SpringStiffness = 7000.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension")
-    float SpringDamping;
+    float SpringDamping = 900.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension")
-    float MaxSuspensionForce = 120000.f;
+    float MaxSuspensionForce = 40000.f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension", meta=(ClampMin = "0.0", ClampMax = "1.0"))
-    float MinGroundNormalAlignment = 0.3f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float MinGroundNormalAlignment = 0.35f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Suspension")
-    bool bEnableDebugMode;
+    bool bEnableDebugMode = false;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
     float LastSpringForce = 0.f;
@@ -85,22 +86,41 @@ public:
     float DebugLogTimer = 0.f;
 
     UPROPERTY()
-    USceneComponent* ParentComponentRef;
+    FVector ReferenceFrameLocation = FVector::ZeroVector;
+
     UPROPERTY()
-    FVector ReferenceFrameLocation;
+    FTransform ReferenceFrameTransform = FTransform::Identity;
+
     UPROPERTY()
     FHitResult ShapeSweepClosestOutHit;
 
-    FTransform ReferenceFrameTransform;
+    UPROPERTY()
+    FVector ContactLocation = FVector::ZeroVector;
 
-    bool bContactPointActive;
-    bool bHadContactLastFrame = false;
-    float CurrentLength = 0;
-    float LastLength = 0;
-    FVector ContactLocation;
-    FVector ContactNormal;
-    UPhysicalMaterial* ContactPhysicalMaterial;
-    FVector TracedHubLocation;
-    FVector SpringDirection;
-    FVector SuspensionForce;
+    UPROPERTY()
+    FVector ContactNormal = FVector::UpVector;
+
+    UPROPERTY()
+    UPhysicalMaterial* ContactPhysicalMaterial = nullptr;
+
+    UPROPERTY()
+    FVector TracedHubLocation = FVector::ZeroVector;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
+    FVector SpringDirection = FVector::UpVector;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
+    FVector SuspensionForce = FVector::ZeroVector;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
+    bool bContactPointActive = false;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
+    float CurrentLength = 0.f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
+    float LastLength = 0.f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debug")
+    float LastCompressionVelocity = 0.f;
 };
