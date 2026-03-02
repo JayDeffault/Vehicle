@@ -21,14 +21,13 @@ void UWheelComponent::InitializeWheelComponents()
 {
     Body = Cast<UPrimitiveComponent>(GetOwner()->GetRootComponent());
 
-    TArray<UActorComponent*> MeshComponents = GetOwner()->GetComponentsByClass(UStaticMeshComponent::StaticClass());
+    TInlineComponentArray<UStaticMeshComponent*> MeshComponents(GetOwner());
+    GetOwner()->GetComponents(MeshComponents);
 
     if (SweepCollisionComponent == nullptr)
     {
-        for (UActorComponent* Component : MeshComponents)
+        for (UStaticMeshComponent* MeshComponent : MeshComponents)
         {
-            UStaticMeshComponent* MeshComponent = Cast<UStaticMeshComponent>(Component);
-
             if (MeshComponent != nullptr && MeshComponent->GetFName() == SweepCollisionComponentName)
             {
                 SweepCollisionComponent = MeshComponent;
@@ -39,10 +38,8 @@ void UWheelComponent::InitializeWheelComponents()
 
     if (VisualWheelMeshComponent == nullptr)
     {
-        for (UActorComponent* Component : MeshComponents)
+        for (UStaticMeshComponent* MeshComponent : MeshComponents)
         {
-            UStaticMeshComponent* MeshComponent = Cast<UStaticMeshComponent>(Component);
-
             if (MeshComponent != nullptr && MeshComponent->GetFName() == VisualWheelComponentName)
             {
                 VisualWheelMeshComponent = MeshComponent;
@@ -68,18 +65,16 @@ bool UWheelComponent::PerformSuspensionSweep(FHitResult& OutBestHit, FVector& Ou
     OutStart = GetComponentLocation();
     OutEnd = OutStart + SuspensionDirection * SuspensionLength;
 
-    FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(WheelSuspensionSweep), false, GetOwner());
+    FComponentQueryParams QueryParams(SCENE_QUERY_STAT(WheelSuspensionSweep), GetOwner());
     TArray<FHitResult> SweepHits;
 
-    const bool bHasAnyHit = GetWorld()->ComponentSweepMultiByChannel(
+    const bool bHasAnyHit = GetWorld()->ComponentSweepMulti(
         SweepHits,
         SweepCollisionComponent,
         OutStart,
         OutEnd,
         SweepCollisionComponent->GetComponentQuat(),
-        SweepChannel,
-        QueryParams,
-        FCollisionResponseParams::DefaultResponseParam);
+        QueryParams);
 
     if (!bHasAnyHit)
     {
