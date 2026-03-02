@@ -84,7 +84,7 @@ bool UWheelComponent::PerformSuspensionSweep(FHitResult& OutBestHit, FVector& Ou
             continue;
         }
 
-        const float CurrentDistanceSq = FVector::DistSquared(OutStart, Hit.ImpactPoint);
+        const float CurrentDistanceSq = FMath::Square(Hit.Distance);
 
         if (CurrentDistanceSq < ClosestDistanceSq)
         {
@@ -133,18 +133,8 @@ void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 
     const float GroundAlignment = FMath::Clamp(FVector::DotProduct(BestHit.ImpactNormal, SuspensionAxis), 0.0f, 1.0f);
     float TotalSuspensionForce = (SpringForce + DampingForce) * GroundAlignment;
-
-    if (FMath::Abs(PointVelocityAlongAxis) < StabilityVelocityThreshold && CompressionDistance > 0.0f)
-    {
-        TotalSuspensionForce = FMath::Max(TotalSuspensionForce, SpringForce * GroundAlignment);
-    }
-
     TotalSuspensionForce = FMath::Clamp(TotalSuspensionForce, 0.0f, MaxSuspensionForce);
-
-    if (TotalSuspensionForce > StabilityForceThreshold)
-    {
-        Body->AddForceAtLocation(SuspensionAxis * TotalSuspensionForce, SweepStart);
-    }
+    Body->AddForceAtLocation(SuspensionAxis * TotalSuspensionForce, BestHit.ImpactPoint);
 
 
     if (bDrawDebug)
