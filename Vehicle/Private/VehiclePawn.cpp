@@ -11,6 +11,8 @@ AVehiclePawn::AVehiclePawn()
     SetRootComponent(BodyMesh);
     BodyMesh->SetSimulatePhysics(true);
     BodyMesh->SetEnableGravity(true);
+    BodyMesh->SetLinearDamping(ChassisLinearDamping);
+    BodyMesh->SetAngularDamping(ChassisAngularDamping);
 
     FrontLeftWheel = CreateDefaultSubobject<UWheelComponent>(TEXT("FrontLeftWheel"));
     FrontLeftWheel->SetupAttachment(BodyMesh);
@@ -42,6 +44,8 @@ void AVehiclePawn::InitializeVehicle()
     BodyMesh->SetSimulatePhysics(true);
     BodyMesh->SetMassOverrideInKg(NAME_None, ChassisMassInKg, true);
     BodyMesh->SetEnableGravity(true);
+    BodyMesh->SetLinearDamping(ChassisLinearDamping);
+    BodyMesh->SetAngularDamping(ChassisAngularDamping);
     BodyMesh->WakeAllRigidBodies();
 }
 

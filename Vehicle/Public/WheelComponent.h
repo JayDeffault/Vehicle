@@ -31,16 +31,16 @@ private:
     float SuspensionLength = 45.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
-    float SpringStiffness = 85000.0f;
+    float SpringStiffness = 65000.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
-    float DamperStiffness = 6500.0f;
+    float DamperStiffness = 9500.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
     float WheelRadius = 18.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
-    float MaxSuspensionForce = 140000.0f;
+    float MaxSuspensionForce = 120000.0f;
 
     UPROPERTY(EditAnywhere, Category = "Wheel")
     UStaticMeshComponent* SweepCollisionComponent = nullptr;
@@ -53,4 +53,6 @@ private:
 
     UPROPERTY()
     UPrimitiveComponent* Body = nullptr;
+
+    float PreviousSpringLength = 45.0f;
 };
