@@ -17,7 +17,6 @@ void UWheelComponent::BeginPlay()
     Super::BeginPlay();
 
     InitializeWheelComponents();
-    PreviousSpringLength = SuspensionLength;
 }
 
 void UWheelComponent::InitializeWheelComponents()
@@ -57,7 +56,7 @@ bool UWheelComponent::PerformSuspensionSweep(FHitResult& OutBestHit, FVector& Ou
 
     const FVector SuspensionDirection = -GetUpVector();
     OutStart = GetComponentLocation();
-    OutEnd = OutStart + SuspensionDirection * (SuspensionLength + WheelRadius);
+    OutEnd = OutStart + SuspensionDirection * SuspensionLength;
 
     FComponentQueryParams QueryParams(SCENE_QUERY_STAT(WheelSuspensionSweep), GetOwner());
     TArray<FHitResult> SweepHits;
@@ -115,7 +114,6 @@ void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 
     if (!bHasGroundHit)
     {
-        PreviousSpringLength = SuspensionLength;
 
         if (bDrawDebug)
         {
@@ -126,19 +124,28 @@ void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
     }
 
     const FVector SuspensionAxis = GetUpVector();
-    const float HitDistance = FVector::Distance(SweepStart, BestHit.ImpactPoint);
-    const float CurrentSpringLength = FMath::Clamp(HitDistance - WheelRadius, 0.0f, SuspensionLength);
+    const float CurrentSpringLength = FMath::Clamp(BestHit.Distance, 0.0f, SuspensionLength);
     const float CompressionDistance = SuspensionLength - CurrentSpringLength;
 
     const float SpringForce = CompressionDistance * SpringStiffness;
-    const float SpringVelocity = (PreviousSpringLength - CurrentSpringLength) / DeltaTime;
-    const float DampingForce = SpringVelocity * DamperStiffness;
+    const float PointVelocityAlongAxis = FVector::DotProduct(Body->GetPhysicsLinearVelocityAtPoint(SweepStart), SuspensionAxis);
+    const float DampingForce = -PointVelocityAlongAxis * DamperStiffness;
 
     const float GroundAlignment = FMath::Clamp(FVector::DotProduct(BestHit.ImpactNormal, SuspensionAxis), 0.0f, 1.0f);
-    const float TotalSuspensionForce = FMath::Clamp((SpringForce + DampingForce) * GroundAlignment, 0.0f, MaxSuspensionForce);
+    float TotalSuspensionForce = (SpringForce + DampingForce) * GroundAlignment;
 
-    Body->AddForceAtLocation(SuspensionAxis * TotalSuspensionForce, SweepStart);
-    PreviousSpringLength = CurrentSpringLength;
+    if (FMath::Abs(PointVelocityAlongAxis) < StabilityVelocityThreshold && CompressionDistance > 0.0f)
+    {
+        TotalSuspensionForce = FMath::Max(TotalSuspensionForce, SpringForce * GroundAlignment);
+    }
+
+    TotalSuspensionForce = FMath::Clamp(TotalSuspensionForce, 0.0f, MaxSuspensionForce);
+
+    if (TotalSuspensionForce > StabilityForceThreshold)
+    {
+        Body->AddForceAtLocation(SuspensionAxis * TotalSuspensionForce, SweepStart);
+    }
+
 
     if (bDrawDebug)
     {

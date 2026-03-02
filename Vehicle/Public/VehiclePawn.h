@@ -46,7 +46,7 @@ private:
     float ChassisMassInKg = 1200.0f;
 
     UPROPERTY(EditAnywhere, Category = "Vehicle|Physics")
-    float ExtraDownforce = 2500.0f;
+    float ExtraDownforce = 0.0f;
 
     UPROPERTY(EditAnywhere, Category = "Vehicle|Physics")
     float ChassisLinearDamping = 1.8f;
