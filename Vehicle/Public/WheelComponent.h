@@ -4,9 +4,9 @@
 #include "Components/SceneComponent.h"
 #include "WheelComponent.generated.h"
 
+class UStaticMesh;
 class UStaticMeshComponent;
 class UPrimitiveComponent;
-
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class VEHICLE_API UWheelComponent : public USceneComponent
@@ -31,34 +31,26 @@ private:
     float SuspensionLength = 45.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
-    float SpringStiffness = 65000.0f;
+    float SpringStiffness = 85000.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
-    float DamperStiffness = 4500.0f;
+    float DamperStiffness = 6500.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
     float WheelRadius = 18.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
-    TEnumAsByte<ECollisionChannel> SweepChannel = ECC_WorldStatic;
+    float MaxSuspensionForce = 140000.0f;
 
-    UPROPERTY(EditAnywhere, Category = "Setup")
-    FName SweepCollisionComponentName = TEXT("SweepCollisionComponent");
-
-    UPROPERTY(EditAnywhere, Category = "Setup")
-    FName VisualWheelComponentName = TEXT("VisualWheelMeshComponent");
-
-    UPROPERTY(EditAnywhere, Category = "Setup")
+    UPROPERTY(EditAnywhere, Category = "Wheel")
     UStaticMeshComponent* SweepCollisionComponent = nullptr;
 
-    UPROPERTY(EditAnywhere, Category = "Setup")
-    UStaticMeshComponent* VisualWheelMeshComponent = nullptr;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Wheel", meta = (AllowPrivateAccess = "true"))
+    UStaticMesh* CollisionShape = nullptr;
 
     UPROPERTY(EditAnywhere, Category = "Debug")
     bool bDrawDebug = false;
 
     UPROPERTY()
     UPrimitiveComponent* Body = nullptr;
-
-    FVector VisualMeshInitialRelativeLocation = FVector::ZeroVector;
 };

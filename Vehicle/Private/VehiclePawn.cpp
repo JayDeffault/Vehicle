@@ -9,6 +9,8 @@ AVehiclePawn::AVehiclePawn()
 
     BodyMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BodyMesh"));
     SetRootComponent(BodyMesh);
+    BodyMesh->SetSimulatePhysics(true);
+    BodyMesh->SetEnableGravity(true);
 
     FrontLeftWheel = CreateDefaultSubobject<UWheelComponent>(TEXT("FrontLeftWheel"));
     FrontLeftWheel->SetupAttachment(BodyMesh);

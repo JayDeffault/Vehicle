@@ -3,6 +3,7 @@
 #include "DrawDebugHelpers.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 
 UWheelComponent::UWheelComponent()
@@ -21,36 +22,27 @@ void UWheelComponent::InitializeWheelComponents()
 {
     Body = Cast<UPrimitiveComponent>(GetOwner()->GetRootComponent());
 
-    TInlineComponentArray<UStaticMeshComponent*> MeshComponents(GetOwner());
-    GetOwner()->GetComponents(MeshComponents);
-
     if (SweepCollisionComponent == nullptr)
     {
-        for (UStaticMeshComponent* MeshComponent : MeshComponents)
+        SweepCollisionComponent = NewObject<UStaticMeshComponent>(GetOwner(), TEXT("SweepCollisionComponent"));
+
+        if (SweepCollisionComponent != nullptr)
         {
-            if (MeshComponent != nullptr && MeshComponent->GetFName() == SweepCollisionComponentName)
-            {
-                SweepCollisionComponent = MeshComponent;
-                break;
-            }
+            GetOwner()->AddInstanceComponent(SweepCollisionComponent);
+            SweepCollisionComponent->SetupAttachment(this);
+            SweepCollisionComponent->RegisterComponent();
         }
     }
 
-    if (VisualWheelMeshComponent == nullptr)
+    if (SweepCollisionComponent != nullptr)
     {
-        for (UStaticMeshComponent* MeshComponent : MeshComponents)
-        {
-            if (MeshComponent != nullptr && MeshComponent->GetFName() == VisualWheelComponentName)
-            {
-                VisualWheelMeshComponent = MeshComponent;
-                break;
-            }
-        }
-    }
+        SweepCollisionComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+        SweepCollisionComponent->SetGenerateOverlapEvents(false);
 
-    if (VisualWheelMeshComponent != nullptr)
-    {
-        VisualMeshInitialRelativeLocation = VisualWheelMeshComponent->GetRelativeLocation();
+        if (CollisionShape != nullptr)
+        {
+            SweepCollisionComponent->SetStaticMesh(CollisionShape);
+        }
     }
 }
 
@@ -108,7 +100,7 @@ void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-    if (Body == nullptr || SweepCollisionComponent == nullptr)
+    if (Body == nullptr || SweepCollisionComponent == nullptr || !Body->IsSimulatingPhysics())
     {
         return;
     }
@@ -118,27 +110,19 @@ void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
     FVector SweepEnd = FVector::ZeroVector;
 
     const bool bHasGroundHit = PerformSuspensionSweep(BestHit, SweepStart, SweepEnd);
-    const FVector SuspensionAxis = GetUpVector();
 
     if (bHasGroundHit)
     {
+        const FVector SuspensionAxis = GetUpVector();
         const float HitDistance = FVector::Distance(SweepStart, BestHit.ImpactPoint);
         const float CompressionDistance = FMath::Clamp(SuspensionLength - HitDistance, 0.0f, SuspensionLength);
-        const float CompressionRatio = CompressionDistance / SuspensionLength;
+        const float SpringForce = CompressionDistance * SpringStiffness;
 
-        const float SpringForce = CompressionRatio * SpringStiffness;
         const float VelocityAlongSuspension = FVector::DotProduct(Body->GetPhysicsLinearVelocityAtPoint(SweepStart), SuspensionAxis);
         const float DampingForce = -VelocityAlongSuspension * DamperStiffness;
-        const float TotalSuspensionForce = FMath::Max(SpringForce + DampingForce, 0.0f);
 
+        const float TotalSuspensionForce = FMath::Clamp(SpringForce + DampingForce, 0.0f, MaxSuspensionForce);
         Body->AddForceAtLocation(SuspensionAxis * TotalSuspensionForce, SweepStart);
-
-        if (VisualWheelMeshComponent != nullptr)
-        {
-            const float WheelOffset = -(HitDistance - WheelRadius);
-            VisualWheelMeshComponent->SetRelativeLocation(
-                VisualMeshInitialRelativeLocation + FVector(0.0f, 0.0f, WheelOffset));
-        }
 
         if (bDrawDebug)
         {
@@ -146,17 +130,8 @@ void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
             DrawDebugSphere(GetWorld(), BestHit.ImpactPoint, 8.0f, 12, FColor::Green, false, -1.0f, 0, 1.5f);
         }
     }
-    else
+    else if (bDrawDebug)
     {
-        if (VisualWheelMeshComponent != nullptr)
-        {
-            VisualWheelMeshComponent->SetRelativeLocation(
-                VisualMeshInitialRelativeLocation + FVector(0.0f, 0.0f, -SuspensionLength));
-        }
-
-        if (bDrawDebug)
-        {
-            DrawDebugLine(GetWorld(), SweepStart, SweepEnd, FColor::Red, false, -1.0f, 0, 1.5f);
-        }
+        DrawDebugLine(GetWorld(), SweepStart, SweepEnd, FColor::Red, false, -1.0f, 0, 1.5f);
     }
 }
