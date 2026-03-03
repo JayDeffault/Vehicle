@@ -31,16 +31,19 @@ private:
     float SuspensionLength = 45.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
-    float SpringStiffness = 42000.0f;
+    float SpringStiffness = 65000.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
-    float DamperStiffness = 14000.0f;
+    float DamperStiffness = 2500.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
     float WheelRadius = 18.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
-    float MaxSuspensionForce = 80000.0f;
+    float MaxSuspensionForce = 120000.0f;
+
+    UPROPERTY(EditAnywhere, Category = "Suspension")
+    bool bEnableSuspensionDamping = false;
 
 
     UPROPERTY(EditAnywhere, Category = "Wheel")
