@@ -1,12 +1,11 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "AsyncTickPawn.h"
-#include "GameFramework/Pawn.h"
-#include "WheelComponent.h"
 #include "VehiclePawn.generated.h"
+
+class UStaticMeshComponent;
+class UWheelComponent;
 
 UCLASS()
 class VEHICLE_API AVehiclePawn : public AAsyncTickPawn
@@ -18,10 +17,46 @@ public:
 
 protected:
     virtual void BeginPlay() override;
-
     virtual void NativeAsyncTick(float DeltaTime) override;
 
 public:
     virtual void Tick(float DeltaTime) override;
 
+private:
+    void InitializeVehicle();
+    void ApplyAsyncSuspensionForces(float DeltaTime);
+
+private:
+    UPROPERTY(VisibleAnywhere, Category = "Vehicle")
+    UStaticMeshComponent* BodyMesh = nullptr;
+
+    UPROPERTY(VisibleAnywhere, Category = "Vehicle")
+    UWheelComponent* FrontLeftWheel = nullptr;
+
+    UPROPERTY(VisibleAnywhere, Category = "Vehicle")
+    UWheelComponent* FrontRightWheel = nullptr;
+
+    UPROPERTY(VisibleAnywhere, Category = "Vehicle")
+    UWheelComponent* RearLeftWheel = nullptr;
+
+    UPROPERTY(VisibleAnywhere, Category = "Vehicle")
+    UWheelComponent* RearRightWheel = nullptr;
+
+    UPROPERTY(Transient)
+    TArray<UWheelComponent*> WheelComponents;
+
+    UPROPERTY(EditAnywhere, Category = "Vehicle|Physics")
+    float ChassisMassInKg = 1200.0f;
+
+    UPROPERTY(EditAnywhere, Category = "Vehicle|Physics")
+    float ExtraDownforce = 0.0f;
+
+    UPROPERTY(EditAnywhere, Category = "Vehicle|Physics")
+    float ChassisLinearDamping = 0.0f;
+
+    UPROPERTY(EditAnywhere, Category = "Vehicle|Physics")
+    float ChassisAngularDamping = 0.0f;
+
+    UPROPERTY(EditAnywhere, Category = "Vehicle|Physics")
+    bool bEnableAsyncPhysicsForce = true;
 };
