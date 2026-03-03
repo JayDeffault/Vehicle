@@ -131,12 +131,21 @@ void UWheelComponent::ComputeSuspensionForce(float DeltaTime)
     const float CurrentSpringLength = FMath::Clamp(BestHit.Distance, 0.0f, SuspensionLength);
     const float CompressionDistance = SuspensionLength - CurrentSpringLength;
 
-    const float SpringForce = CompressionDistance * SpringStiffness;
+    const float SafeMass = FMath::Max(EstimatedSprungMass, 1.0f);
+    const float SafeDt = FMath::Max(DeltaTime, KINDA_SMALL_NUMBER);
 
-    float SpringVelocity = (PreviousSpringLength - CurrentSpringLength) / DeltaTime;
+    const float MaxStableStiffness = (SafeMass / (SafeDt * SafeDt)) * SolverStabilityFactor;
+    const float MaxStableDamper = (2.0f * SafeMass / SafeDt) * SolverStabilityFactor;
+
+    const float EffectiveSpringStiffness = FMath::Min(SpringStiffness, MaxStableStiffness);
+    const float EffectiveDamperStiffness = FMath::Min(DamperStiffness, MaxStableDamper);
+
+    const float SpringForce = CompressionDistance * EffectiveSpringStiffness;
+
+    float SpringVelocity = (PreviousSpringLength - CurrentSpringLength) / SafeDt;
     SpringVelocity = FMath::Clamp(SpringVelocity, -MaxSpringVelocity, MaxSpringVelocity);
 
-    float DampingForce = SpringVelocity * DamperStiffness;
+    float DampingForce = SpringVelocity * EffectiveDamperStiffness;
 
     if (!bHadGroundContactLastFrame)
     {

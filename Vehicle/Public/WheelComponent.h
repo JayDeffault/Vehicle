@@ -50,6 +50,12 @@ private:
     UPROPERTY(EditAnywhere, Category = "Suspension")
     float DamperForceRatioLimit = 2.0f;
 
+    UPROPERTY(EditAnywhere, Category = "Suspension|Stability")
+    float EstimatedSprungMass = 300.0f;
+
+    UPROPERTY(EditAnywhere, Category = "Suspension|Stability")
+    float SolverStabilityFactor = 0.35f;
+
 
     UPROPERTY(EditAnywhere, Category = "Wheel")
     UStaticMeshComponent* SweepCollisionComponent = nullptr;
