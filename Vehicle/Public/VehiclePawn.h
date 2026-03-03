@@ -49,10 +49,10 @@ private:
     float ExtraDownforce = 0.0f;
 
     UPROPERTY(EditAnywhere, Category = "Vehicle|Physics")
-    float ChassisLinearDamping = 1.8f;
+    float ChassisLinearDamping = 0.0f;
 
     UPROPERTY(EditAnywhere, Category = "Vehicle|Physics")
-    float ChassisAngularDamping = 6.0f;
+    float ChassisAngularDamping = 0.0f;
 
     UPROPERTY(EditAnywhere, Category = "Vehicle|Physics")
     bool bEnableAsyncPhysicsForce = true;

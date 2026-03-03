@@ -128,12 +128,8 @@ void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
     const float CompressionDistance = SuspensionLength - CurrentSpringLength;
 
     const float SpringForce = CompressionDistance * SpringStiffness;
-    const float PointVelocityAlongAxis = FVector::DotProduct(Body->GetPhysicsLinearVelocityAtPoint(SweepStart), SuspensionAxis);
-    const float DampingForce = bEnableSuspensionDamping ? (-PointVelocityAlongAxis * DamperStiffness) : 0.0f;
-
     const float GroundAlignment = FMath::Clamp(FVector::DotProduct(BestHit.ImpactNormal, SuspensionAxis), 0.0f, 1.0f);
-    float TotalSuspensionForce = (SpringForce + DampingForce) * GroundAlignment;
-    TotalSuspensionForce = FMath::Clamp(TotalSuspensionForce, 0.0f, MaxSuspensionForce);
+    const float TotalSuspensionForce = FMath::Clamp(SpringForce * GroundAlignment, 0.0f, MaxSuspensionForce);
     Body->AddForceAtLocation(SuspensionAxis * TotalSuspensionForce, BestHit.ImpactPoint);
 
 
