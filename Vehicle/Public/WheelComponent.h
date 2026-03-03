@@ -44,8 +44,6 @@ private:
     UPROPERTY(EditAnywhere, Category = "Suspension")
     float WheelRadius = 18.0f;
 
-    UPROPERTY(EditAnywhere, Category = "Suspension")
-    float MaxSuspensionForce = 220000.0f;
 
     UPROPERTY(EditAnywhere, Category = "Wheel")
     UStaticMeshComponent* SweepCollisionComponent = nullptr;

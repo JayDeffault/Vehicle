@@ -135,7 +135,7 @@ void UWheelComponent::ComputeSuspensionForce(float DeltaTime)
     const float DampingForce = SpringVelocity * DamperStiffness;
 
     const float GroundAlignment = FMath::Clamp(FVector::DotProduct(BestHit.ImpactNormal, SuspensionAxis), 0.0f, 1.0f);
-    const float TotalSuspensionForce = FMath::Clamp((SpringForce + DampingForce) * GroundAlignment, 0.0f, MaxSuspensionForce);
+    const float TotalSuspensionForce = FMath::Max((SpringForce + DampingForce) * GroundAlignment, 0.0f);
 
     PendingSuspensionForce = SuspensionAxis * TotalSuspensionForce;
     PendingSuspensionForceLocation = BestHit.ImpactPoint;
