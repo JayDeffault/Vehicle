@@ -22,6 +22,11 @@ protected:
 public:
     virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
+    void ComputeSuspensionForce(float DeltaTime);
+    bool HasSuspensionForce() const;
+    FVector GetSuspensionForce() const;
+    FVector GetSuspensionForceLocation() const;
+
 private:
     void InitializeWheelComponents();
     bool PerformSuspensionSweep(FHitResult& OutBestHit, FVector& OutStart, FVector& OutEnd) const;
@@ -34,14 +39,13 @@ private:
     float SpringStiffness = 120000.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
-    float DamperStiffness = 0.0f;
+    float DamperStiffness = 4500.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
     float WheelRadius = 18.0f;
 
     UPROPERTY(EditAnywhere, Category = "Suspension")
     float MaxSuspensionForce = 220000.0f;
-
 
     UPROPERTY(EditAnywhere, Category = "Wheel")
     UStaticMeshComponent* SweepCollisionComponent = nullptr;
@@ -55,4 +59,7 @@ private:
     UPROPERTY()
     UPrimitiveComponent* Body = nullptr;
 
+    FVector PendingSuspensionForce = FVector::ZeroVector;
+    FVector PendingSuspensionForceLocation = FVector::ZeroVector;
+    bool bHasPendingSuspensionForce = false;
 };

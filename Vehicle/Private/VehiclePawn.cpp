@@ -25,6 +25,8 @@ AVehiclePawn::AVehiclePawn()
 
     RearRightWheel = CreateDefaultSubobject<UWheelComponent>(TEXT("RearRightWheel"));
     RearRightWheel->SetupAttachment(BodyMesh);
+
+    WheelComponents = {FrontLeftWheel, FrontRightWheel, RearLeftWheel, RearRightWheel};
 }
 
 void AVehiclePawn::BeginPlay()
@@ -58,13 +60,34 @@ void AVehiclePawn::NativeAsyncTick(float DeltaTime)
 
 void AVehiclePawn::ApplyAsyncSuspensionForces(float DeltaTime)
 {
-    if (!bEnableAsyncPhysicsForce || DeltaTime <= SMALL_NUMBER || BodyMesh == nullptr || !BodyMesh->IsSimulatingPhysics())
+    if (DeltaTime <= SMALL_NUMBER || BodyMesh == nullptr || !BodyMesh->IsSimulatingPhysics())
     {
         return;
     }
 
-    const FVector DownForce = -GetActorUpVector() * ExtraDownforce;
-    BodyMesh->AddForce(DownForce);
+    for (UWheelComponent* WheelComponent : WheelComponents)
+    {
+        if (WheelComponent != nullptr)
+        {
+            WheelComponent->ComputeSuspensionForce(DeltaTime);
+        }
+    }
+
+    for (UWheelComponent* WheelComponent : WheelComponents)
+    {
+        if (WheelComponent == nullptr || !WheelComponent->HasSuspensionForce())
+        {
+            continue;
+        }
+
+        BodyMesh->AddForceAtLocation(WheelComponent->GetSuspensionForce(), WheelComponent->GetSuspensionForceLocation());
+    }
+
+    if (bEnableAsyncPhysicsForce)
+    {
+        const FVector DownForce = -GetActorUpVector() * ExtraDownforce;
+        BodyMesh->AddForce(DownForce);
+    }
 }
 
 void AVehiclePawn::Tick(float DeltaTime)

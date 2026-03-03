@@ -97,9 +97,10 @@ bool UWheelComponent::PerformSuspensionSweep(FHitResult& OutBestHit, FVector& Ou
     return bFoundBlockingHit;
 }
 
-void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void UWheelComponent::ComputeSuspensionForce(float DeltaTime)
 {
-    Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+    bHasPendingSuspensionForce = false;
+    PendingSuspensionForce = FVector::ZeroVector;
 
     if (Body == nullptr || SweepCollisionComponent == nullptr || !Body->IsSimulatingPhysics() || DeltaTime <= SMALL_NUMBER)
     {
@@ -114,7 +115,6 @@ void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 
     if (!bHasGroundHit)
     {
-
         if (bDrawDebug)
         {
             DrawDebugLine(GetWorld(), SweepStart, SweepEnd, FColor::Red, false, -1.0f, 0, 1.5f);
@@ -128,14 +128,39 @@ void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
     const float CompressionDistance = SuspensionLength - CurrentSpringLength;
 
     const float SpringForce = CompressionDistance * SpringStiffness;
-    const float GroundAlignment = FMath::Clamp(FVector::DotProduct(BestHit.ImpactNormal, SuspensionAxis), 0.0f, 1.0f);
-    const float TotalSuspensionForce = FMath::Clamp(SpringForce * GroundAlignment, 0.0f, MaxSuspensionForce);
-    Body->AddForceAtLocation(SuspensionAxis * TotalSuspensionForce, BestHit.ImpactPoint);
+    const float VelocityAlongAxis = FVector::DotProduct(Body->GetPhysicsLinearVelocityAtPoint(BestHit.ImpactPoint), SuspensionAxis);
+    const float DampingForce = -VelocityAlongAxis * DamperStiffness;
 
+    const float GroundAlignment = FMath::Clamp(FVector::DotProduct(BestHit.ImpactNormal, SuspensionAxis), 0.0f, 1.0f);
+    const float TotalSuspensionForce = FMath::Clamp((SpringForce + DampingForce) * GroundAlignment, 0.0f, MaxSuspensionForce);
+
+    PendingSuspensionForce = SuspensionAxis * TotalSuspensionForce;
+    PendingSuspensionForceLocation = BestHit.ImpactPoint;
+    bHasPendingSuspensionForce = TotalSuspensionForce > KINDA_SMALL_NUMBER;
 
     if (bDrawDebug)
     {
         DrawDebugLine(GetWorld(), SweepStart, BestHit.ImpactPoint, FColor::Green, false, -1.0f, 0, 2.0f);
         DrawDebugSphere(GetWorld(), BestHit.ImpactPoint, 8.0f, 12, FColor::Green, false, -1.0f, 0, 1.5f);
     }
+}
+
+bool UWheelComponent::HasSuspensionForce() const
+{
+    return bHasPendingSuspensionForce;
+}
+
+FVector UWheelComponent::GetSuspensionForce() const
+{
+    return PendingSuspensionForce;
+}
+
+FVector UWheelComponent::GetSuspensionForceLocation() const
+{
+    return PendingSuspensionForceLocation;
+}
+
+void UWheelComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+    Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 }

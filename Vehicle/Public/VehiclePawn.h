@@ -42,6 +42,9 @@ private:
     UPROPERTY(VisibleAnywhere, Category = "Vehicle")
     UWheelComponent* RearRightWheel = nullptr;
 
+    UPROPERTY(Transient)
+    TArray<UWheelComponent*> WheelComponents;
+
     UPROPERTY(EditAnywhere, Category = "Vehicle|Physics")
     float ChassisMassInKg = 1200.0f;
 
