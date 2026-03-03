@@ -17,6 +17,8 @@ void UWheelComponent::BeginPlay()
     Super::BeginPlay();
 
     InitializeWheelComponents();
+
+    PreviousSpringLength = SuspensionLength;
 }
 
 void UWheelComponent::InitializeWheelComponents()
@@ -120,6 +122,7 @@ void UWheelComponent::ComputeSuspensionForce(float DeltaTime)
             DrawDebugLine(GetWorld(), SweepStart, SweepEnd, FColor::Red, false, -1.0f, 0, 1.5f);
         }
 
+        PreviousSpringLength = SuspensionLength;
         return;
     }
 
@@ -128,8 +131,8 @@ void UWheelComponent::ComputeSuspensionForce(float DeltaTime)
     const float CompressionDistance = SuspensionLength - CurrentSpringLength;
 
     const float SpringForce = CompressionDistance * SpringStiffness;
-    const float VelocityAlongAxis = FVector::DotProduct(Body->GetPhysicsLinearVelocityAtPoint(BestHit.ImpactPoint), SuspensionAxis);
-    const float DampingForce = -VelocityAlongAxis * DamperStiffness;
+    const float SpringVelocity = (PreviousSpringLength - CurrentSpringLength) / DeltaTime;
+    const float DampingForce = SpringVelocity * DamperStiffness;
 
     const float GroundAlignment = FMath::Clamp(FVector::DotProduct(BestHit.ImpactNormal, SuspensionAxis), 0.0f, 1.0f);
     const float TotalSuspensionForce = FMath::Clamp((SpringForce + DampingForce) * GroundAlignment, 0.0f, MaxSuspensionForce);
@@ -137,6 +140,7 @@ void UWheelComponent::ComputeSuspensionForce(float DeltaTime)
     PendingSuspensionForce = SuspensionAxis * TotalSuspensionForce;
     PendingSuspensionForceLocation = BestHit.ImpactPoint;
     bHasPendingSuspensionForce = TotalSuspensionForce > KINDA_SMALL_NUMBER;
+    PreviousSpringLength = CurrentSpringLength;
 
     if (bDrawDebug)
     {

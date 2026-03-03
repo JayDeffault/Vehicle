@@ -62,4 +62,6 @@ private:
     FVector PendingSuspensionForce = FVector::ZeroVector;
     FVector PendingSuspensionForceLocation = FVector::ZeroVector;
     bool bHasPendingSuspensionForce = false;
+
+    float PreviousSpringLength = 45.0f;
 };
