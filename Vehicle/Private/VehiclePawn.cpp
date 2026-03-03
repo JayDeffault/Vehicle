@@ -73,6 +73,10 @@ void AVehiclePawn::ApplyAsyncSuspensionForces(float DeltaTime)
         }
     }
 
+    FVector TotalSuspensionForce = FVector::ZeroVector;
+    FVector TotalSuspensionTorque = FVector::ZeroVector;
+    const FVector CenterOfMass = BodyMesh->GetCenterOfMass();
+
     for (UWheelComponent* WheelComponent : WheelComponents)
     {
         if (WheelComponent == nullptr || !WheelComponent->HasSuspensionForce())
@@ -80,8 +84,15 @@ void AVehiclePawn::ApplyAsyncSuspensionForces(float DeltaTime)
             continue;
         }
 
-        BodyMesh->AddForceAtLocation(WheelComponent->GetSuspensionForce(), WheelComponent->GetSuspensionForceLocation());
+        const FVector WheelForce = WheelComponent->GetSuspensionForce();
+        const FVector ForceLocation = WheelComponent->GetSuspensionForceLocation();
+
+        TotalSuspensionForce += WheelForce;
+        TotalSuspensionTorque += FVector::CrossProduct(ForceLocation - CenterOfMass, WheelForce);
     }
+
+    BodyMesh->AddForce(TotalSuspensionForce);
+    BodyMesh->AddTorqueInRadians(TotalSuspensionTorque);
 
     if (bEnableAsyncPhysicsForce)
     {
