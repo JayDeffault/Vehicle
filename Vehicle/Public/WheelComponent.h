@@ -44,6 +44,12 @@ private:
     UPROPERTY(EditAnywhere, Category = "Suspension")
     float WheelRadius = 18.0f;
 
+    UPROPERTY(EditAnywhere, Category = "Suspension")
+    float MaxSpringVelocity = 2000.0f;
+
+    UPROPERTY(EditAnywhere, Category = "Suspension")
+    float DamperForceRatioLimit = 2.0f;
+
 
     UPROPERTY(EditAnywhere, Category = "Wheel")
     UStaticMeshComponent* SweepCollisionComponent = nullptr;
@@ -62,4 +68,5 @@ private:
     bool bHasPendingSuspensionForce = false;
 
     float PreviousSpringLength = 45.0f;
+    bool bHadGroundContactLastFrame = false;
 };
