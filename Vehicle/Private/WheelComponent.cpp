@@ -128,45 +128,40 @@ void UWheelComponent::ComputeSuspensionForce(float DeltaTime)
     }
 
     const FVector SuspensionAxis = GetUpVector();
-    const float CurrentSpringLength = FMath::Clamp(BestHit.Distance, 0.0f, SuspensionLength);
-    const float CompressionDistance = SuspensionLength - CurrentSpringLength;
+    const float NewSpringLength = FMath::Clamp(BestHit.Distance, 0.0f, SuspensionLength);
+    const float SpringDelta = FMath::Clamp(SuspensionLength - NewSpringLength, 0.0f, SuspensionLength);
+    const float CompressionRatio = FMath::Clamp(SpringDelta / SuspensionLength, 0.0f, 1.0f);
 
-    const float SafeMass = FMath::Max(EstimatedSprungMass, 1.0f);
-    const float SafeDt = FMath::Max(DeltaTime, KINDA_SMALL_NUMBER);
+    float SpringForce = 0.0f;
+    if (SpringDelta > 1.0f)
+    {
+        SpringForce = FMath::Lerp(SpringStiffness * SpringMaxOutputRatio, SpringStiffness, CompressionRatio);
+    }
+    else
+    {
+        SpringForce = SpringStiffness * SpringDelta;
+    }
 
-    const float MaxStableStiffness = (SafeMass / (SafeDt * SafeDt)) * SolverStabilityFactor;
-    const float MaxStableDamper = (2.0f * SafeMass / SafeDt) * SolverStabilityFactor;
-
-    const float EffectiveSpringStiffness = FMath::Min(SpringStiffness, MaxStableStiffness);
-    const float EffectiveDamperStiffness = FMath::Min(DamperStiffness, MaxStableDamper);
-
-    const float SpringForce = CompressionDistance * EffectiveSpringStiffness;
-
-    float SpringVelocity = (PreviousSpringLength - CurrentSpringLength) / SafeDt;
-    SpringVelocity = FMath::Clamp(SpringVelocity, -MaxSpringVelocity, MaxSpringVelocity);
-
-    float DampingForce = SpringVelocity * EffectiveDamperStiffness;
+    float SpringDamping = DamperStiffness * ((NewSpringLength - PreviousSpringLength) / DeltaTime);
+    SpringDamping = FMath::Clamp(SpringDamping, -SpringForce, SpringForce);
 
     if (!bHadGroundContactLastFrame)
     {
-        DampingForce = 0.0f;
+        SpringDamping = 0.0f;
     }
 
-    const float MaxDampingForce = SpringForce * DamperForceRatioLimit;
-    DampingForce = FMath::Clamp(DampingForce, -MaxDampingForce, MaxDampingForce);
+    const float SuspensionForceMagnitude = FMath::Max(SpringForce - SpringDamping, 0.0f);
 
-    const float GroundAlignment = FMath::Clamp(FVector::DotProduct(BestHit.ImpactNormal, SuspensionAxis), 0.0f, 1.0f);
-    const float TotalSuspensionForce = FMath::Max((SpringForce + DampingForce) * GroundAlignment, 0.0f);
-
-    PendingSuspensionForce = SuspensionAxis * TotalSuspensionForce;
+    PendingSuspensionForce = SuspensionAxis * SuspensionForceMagnitude;
     PendingSuspensionForceLocation = BestHit.ImpactPoint;
-    bHasPendingSuspensionForce = TotalSuspensionForce > KINDA_SMALL_NUMBER;
-    PreviousSpringLength = CurrentSpringLength;
+    bHasPendingSuspensionForce = SuspensionForceMagnitude > KINDA_SMALL_NUMBER;
+    PreviousSpringLength = NewSpringLength;
     bHadGroundContactLastFrame = true;
 
     if (bDrawDebug)
     {
         DrawDebugLine(GetWorld(), SweepStart, BestHit.ImpactPoint, FColor::Green, false, -1.0f, 0, 2.0f);
+        DrawDebugLine(GetWorld(), SweepStart, SweepStart + PendingSuspensionForce * 0.001f, FColor::Blue, false, -1.0f, 0, 1.0f);
         DrawDebugSphere(GetWorld(), BestHit.ImpactPoint, 8.0f, 12, FColor::Green, false, -1.0f, 0, 1.5f);
     }
 }
